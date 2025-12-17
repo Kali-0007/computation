@@ -50,13 +50,13 @@
         .highlight-tax { color: #28a745; font-weight: bold; font-size: 18px; }
         .close-calculator { position: absolute; top: 18px; right: 22px; background: rgba(0,0,0,0.4); border: none; color: #fff; font-size: 22px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; }
         .close-calculator:hover { background: #dc3545; transform: scale(1.1); }
+        @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } .btn-group, .download-btns { flex-direction: column; } }
         .invalid { border-color: #dc3545 !important; }
         .error-msg { color: #dc3545; font-size: 12px; margin-top: 4px; display: block; }
         .email-wrapper { position: relative; }
-        .email-suggestions { position: absolute; background: #222; border: 1px solid #444; width: calc(100% - 2px); max-height: 150px; overflow-y: auto; z-index: 1000; border-radius: 8px; margin-top: 2px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .email-suggestion { padding: 10px 12px; cursor: pointer; font-size: 14px; }
+        .email-suggestions { position: absolute; background: #222; border: 1px solid #444; width: 100%; max-height: 150px; overflow-y: auto; z-index: 10; border-radius: 8px; margin-top: 2px; }
+        .email-suggestion { padding: 10px; cursor: pointer; }
         .email-suggestion:hover { background: #4a90e2; }
-        @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } .btn-group, .download-btns { flex-direction: column; } }
     </style>
 </head>
 <body>
@@ -85,11 +85,7 @@
                     <div><label>Date of Birth</label><input type="date" id="dob" onchange="calculateAge()"></div>
                     <div><label>Age (Calculated)</label><input type="number" id="age" readonly></div>
                     <div><label>Address</label><input type="text" id="address"></div>
-                    <div>
-                        <label>PAN</label>
-                        <input type="text" id="pan" maxlength="10" placeholder="ABCDE1234F" oninput="validatePAN(this)">
-                        <span id="panError" class="error-msg"></span>
-                    </div>
+                    <div><label>PAN</label><input type="text" id="pan" maxlength="10" oninput="this.value=this.value.toUpperCase()"></div>
                     <div><label>Ward</label><input type="text" id="ward"></div>
                     <div><label>Occupation</label><input type="text" id="occupation"></div>
                     <div><label>Sex</label>
@@ -99,11 +95,7 @@
                             <option value="other">Other</option>
                         </select>
                     </div>
-                    <div class="email-wrapper">
-                        <label>Email</label>
-                        <input type="text" id="email" oninput="handleEmailInput(this)" onblur="hideSuggestions()" placeholder="user@domain.com">
-                        <div id="emailSuggestions" class="email-suggestions" style="display:none;"></div>
-                    </div>
+                    <div><label>Email</label><input type="email" id="email" oninput="this.value=this.value.toLowerCase()"></div>
                     <div><label>Mobile</label><input type="tel" id="mobile" value="+91" oninput="formatMobile(this)" maxlength="14"></div>
                     <div><label>Aadhaar No.</label><input type="text" id="aadhaar" placeholder="XXXX-XXXX-XXXX" oninput="formatAadhaar(this)" maxlength="14"></div>
                     <div><label>GST Sales</label><input type="text" class="amount-input" id="gstSales" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
@@ -207,7 +199,6 @@
             <button type="button" class="reset-btn" onclick="resetForm()">New Computation</button>
         </div>
     </div>
-
     <script>
         // Utility Functions
         function formatINR(n) { n = parseFloat(n) || 0; return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n); }
@@ -231,8 +222,7 @@
             if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
             document.getElementById('age').value = age;
         }
-
-        // PAN Validation with error message
+      
         function validatePAN(input) {
             let value = input.value.toUpperCase();
             input.value = value;
@@ -253,7 +243,6 @@
             }
         }
 
-        // Email Auto-suggest
         const domains = {
             'g': 'gmail.com',
             'y': 'yahoo.com',
@@ -273,34 +262,25 @@
 
             if (atIndex !== -1 && atIndex === value.lastIndexOf('@')) {
                 const afterAt = value.slice(atIndex + 1).toLowerCase();
-                if (afterAt.length >= 1) {
-                    const matchingKeys = Object.keys(domains).filter(key => key.startsWith(afterAt[0]));
-                    if (matchingKeys.length > 0) {
-                        matchingKeys.forEach(key => {
-                            const fullDomain = domains[key];
-                            const fullEmail = value.slice(0, atIndex + 1) + fullDomain;
-                            const suggestion = document.createElement('div');
-                            suggestion.className = 'email-suggestion';
-                            suggestion.textContent = fullEmail;
-                            suggestion.onclick = () => {
-                                input.value = fullEmail;
-                                suggestionsDiv.style.display = 'none';
-                            };
-                            suggestionsDiv.appendChild(suggestion);
-                        });
-                        suggestionsDiv.style.display = 'block';
-                    }
+                if (afterAt.length === 1 && domains[afterAt]) {
+                    const fullEmail = value.slice(0, atIndex + 1) + domains[afterAt];
+                    const suggestion = document.createElement('div');
+                    suggestion.className = 'email-suggestion';
+                    suggestion.textContent = fullEmail;
+                    suggestion.onclick = () => {
+                        input.value = fullEmail;
+                        suggestionsDiv.style.display = 'none';
+                    };
+                    suggestionsDiv.appendChild(suggestion);
+                    suggestionsDiv.style.display = 'block';
                 }
             }
         }
 
         function hideSuggestions() {
-            setTimeout(() => {
-                document.getElementById('emailSuggestions').style.display = 'none';
-            }, 200);
+            setTimeout(() => document.getElementById('emailSuggestions').style.display = 'none', 200);
         }
 
-        // Step Navigation
         function updateSteps(currentStep) {
             document.querySelectorAll('.step').forEach((step, i) => {
                 step.classList.remove('active', 'completed');
@@ -346,16 +326,21 @@
             container.appendChild(div);
         }
       
-        // Tax Calculation Functions (Accurate for FY 2025-26)
         function calculateOldRegimeTax(totalIncome, basicExemption) {
             let preRebateTax = 0;
+            const fiveLakh = 500000;
+            const tenLakh = 1000000;
             if (totalIncome > basicExemption) {
-                const in5 = Math.min(totalIncome - basicExemption, 250000);
-                preRebateTax += in5 * 0.05;
-                const in20 = Math.min(Math.max(0, totalIncome - (basicExemption + 250000)), 500000);
-                preRebateTax += in20 * 0.20;
-                const in30 = Math.max(0, totalIncome - (basicExemption + 750000));
-                preRebateTax += in30 * 0.30;
+                const fivePercentUpper = Math.min(totalIncome, fiveLakh);
+                const in5Percent = fivePercentUpper - basicExemption;
+                if (in5Percent > 0) preRebateTax += in5Percent * 0.05;
+
+                const twentyPercentUpper = Math.min(totalIncome, tenLakh);
+                const in20Percent = twentyPercentUpper - fiveLakh;
+                if (in20Percent > 0) preRebateTax += in20Percent * 0.20;
+
+                const in30Percent = totalIncome - tenLakh;
+                if (in30Percent > 0) preRebateTax += in30Percent * 0.30;
             }
             let rebate = totalIncome <= 500000 ? Math.min(preRebateTax, 12500) : 0;
             return { preRebateTax, rebate };
@@ -373,7 +358,6 @@
             return { preRebateTax, rebate };
         }
       
-        // Generate Report
         function generateReport() {
             const status = document.getElementById('status').value;
             const regime = document.getElementById('taxRegime').value;
@@ -496,8 +480,7 @@
             window.scrollTo({ top: document.getElementById('results').offsetTop, behavior: 'smooth' });
             updateSteps(4);
         }
-      
-        // PDF Download (Safe with String conversion)
+
         function downloadPDF() {
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF();
@@ -505,7 +488,7 @@
             const regime = document.getElementById('taxRegime').value;
             const isIndividual = status === 'Individual' || status === 'HUF';
             const age = parseInt(document.getElementById('age').value) || 0;
-      
+
             const name = document.getElementById('name').value || '';
             const fatherName = document.getElementById('fatherName').value || '';
             const dob = document.getElementById('dob').value || '';
@@ -651,7 +634,7 @@
             addRow('Sundry Debtors', formatINR(getNum('sundryDebtors')));
             addRow('Cash in Hand', formatINR(getNum('cashInHand')));
       
-            doc.save(`TaxEaseProReport_${assessmentYear}.pdf`);
+            doc.save(`TaxEaseProReport_${document.getElementById('assessmentYear').value}.pdf`);
         }
       
         function downloadExcel() {
@@ -703,8 +686,6 @@
             document.getElementById('taxForm').reset();
             document.getElementById('mobile').value = '+91';
             document.getElementById('age').value = '';
-            document.getElementById('panError').textContent = '';
-            document.getElementById('pan').classList.remove('invalid');
             document.getElementById('results').style.display = 'none';
             document.getElementById('resultsTable').innerHTML = '';
             updateSteps(1);
