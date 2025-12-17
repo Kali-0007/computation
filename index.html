@@ -638,49 +638,120 @@
         }
       
         function downloadExcel() {
-            const status = document.getElementById('status').value;
-            const regime = document.getElementById('taxRegime').value;
-            const isIndividual = status === 'Individual' || status === 'HUF';
-            const age = parseInt(document.getElementById('age').value) || 0;
-            let wsData = [
-                ['NAME', document.getElementById('name').value, 'FINANCIAL YEAR', document.getElementById('financialYear').value],
-                ['FATHER\'S NAME', document.getElementById('fatherName').value, 'ASSESSMENT YEAR', document.getElementById('assessmentYear').value],
-                ['DATE OF BIRTH', document.getElementById('dob').value, 'AGE', age],
-                ['PAN', document.getElementById('pan').value, 'GST SALES', formatINR(getNum('gstSales'))],
-                ['STATUS', status.toUpperCase()]
-            ];
-            if (isIndividual) wsData.push(['TAX REGIME', regime.toUpperCase()]);
-            wsData.push(['', '', 'COMPUTATION OF TAX LIABILITY', '']);
-            wsData.push(['PARTICULARS', '', 'AMOUNT Rs.', '']);
-            wsData.push(['INCOME FROM BUSINESS', '', '', '']);
-            wsData.push(['Gross Receipts from Business', '', `${formatINR(getNum('neftDeposit'))} + ${formatINR(getNum('cashDeposit'))} + ${formatINR(getNum('gstSales'))}`, '']);
-            wsData.push(['Income from Business', getNum('businessRate') + '%', formatINR((getNum('cashDeposit') + getNum('neftDeposit') + getNum('gstSales')) * (getNum('businessRate')/100))]);
-            wsData.push(['GROSS INCOME A', '', formatINR((getNum('cashDeposit') + getNum('neftDeposit') + getNum('gstSales')) * (getNum('businessRate')/100))]);
-            wsData.push(['INCOME FROM SALARY', '', '', '']);
-            wsData.push(['Gross Salary', '', formatINR(getNum('grossSalary'))]);
-            wsData.push(['GROSS INCOME C', '', formatINR(getNum('grossSalary'))]);
-            wsData.push(['INCOME FROM OTHER SOURCES', '', '', '']);
-            wsData.push(['Bank Interest', '', formatINR(getNum('bankInterest'))]);
-            wsData.push(['GROSS INCOME B', '', formatINR(getNum('bankInterest'))]);
-            wsData.push(['GROSS TOTAL INCOME', '', formatINR(getNum('bankInterest') + getNum('grossSalary') + (getNum('cashDeposit') + getNum('neftDeposit') + getNum('gstSales')) * (getNum('businessRate')/100))]);
-            if (isIndividual && regime === 'old') {
-                const basicExemptionExcel = age >= 80 ? 500000 : age >= 60 ? 300000 : 250000;
-                wsData.push(['Basic Exemption', '', formatINR(basicExemptionExcel)]);
-                wsData.push(['Life Insurance Premium (80C)', '', getPremiumsString()]);
-                wsData.push(['Deduction U/S 80TTA', '', formatINR(Math.min(getNum('bankInterest'), 10000))]);
-            }
-            const totalIncomeExcel = getNum('bankInterest') + getNum('grossSalary') + (getNum('cashDeposit') + getNum('neftDeposit') + getNum('gstSales')) * (getNum('businessRate')/100) - (isIndividual && regime === 'old' ? Math.min(getPremiums(), 150000) + Math.min(getNum('bankInterest'), 10000) : 0);
-            wsData.push(['TOTAL INCOME', '', formatINR(totalIncomeExcel)]);
-            wsData.push(['Closing Stock', '', formatINR(getNum('closingStock'))]);
-            wsData.push(['Sundry Creditors', '', formatINR(getNum('sundryCreditors'))]);
-            wsData.push(['Sundry Debtors', '', formatINR(getNum('sundryDebtors'))]);
-            wsData.push(['Cash in Hand', '', formatINR(getNum('cashInHand'))]);
-      
-            const ws = XLSX.utils.aoa_to_sheet(wsData);
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, 'Tax Computation');
-            XLSX.writeFile(wb, `TaxEaseProReport_${document.getElementById('assessmentYear').value}.xlsx`);
-        }
+    const status = document.getElementById('status').value;
+    const regime = document.getElementById('taxRegime').value;
+    const isIndividual = status === 'Individual' || status === 'HUF';
+    const age = parseInt(document.getElementById('age').value) || 0;
+
+    const cashDeposit = getNum('cashDeposit');
+    const neftDeposit = getNum('neftDeposit');
+    const gstSales = getNum('gstSales');
+    const grossReceipts = cashDeposit + neftDeposit + gstSales;
+    const businessRate = getNum('businessRate');
+    const businessIncome = grossReceipts * (businessRate / 100);
+    const grossSalary = getNum('grossSalary');
+    const bankInterest = getNum('bankInterest');
+    const grossTaxable = businessIncome + grossSalary + bankInterest;
+
+    let section80C = 0;
+    let section80TTA = 0;
+    let basicExemption = 0;
+    if (isIndividual && regime === 'old') {
+        basicExemption = age >= 80 ? 500000 : age >= 60 ? 300000 : 250000;
+        section80C = Math.min(getPremiums(), 150000);
+        section80TTA = Math.min(bankInterest, 10000);
+    }
+
+    const totalIncome = grossTaxable - (isIndividual && regime === 'old' ? section80C + section80TTA : 0);
+    const roundedTotalIncome = Math.round(totalIncome / 10) * 10;
+
+    let preRebateTax = 0;
+    let rebate = 0;
+    if (!isIndividual) {
+        const rate = (status === 'Company') ? 0.25 : 0.30;
+        preRebateTax = roundedTotalIncome * rate;
+    } else if (regime === 'old') {
+        const calc = calculateOldRegimeTax(roundedTotalIncome, basicExemption);
+        preRebateTax = calc.preRebateTax;
+        rebate = calc.rebate;
+    } else {
+        const calc = calculateNewRegimeTax(roundedTotalIncome);
+        preRebateTax = calc.preRebateTax;
+        rebate = calc.rebate;
+    }
+    const incomeTax = preRebateTax - rebate;
+    const cess = incomeTax * 0.04;
+    const totalTaxDue = Math.round((incomeTax + cess) / 10) * 10;
+
+    // Improved Excel Layout (PDF जैसा)
+    let wsData = [
+        ['NAME', document.getElementById('name').value, '', 'FINANCIAL YEAR', document.getElementById('financialYear').value],
+        ['FATHER\'S NAME', document.getElementById('fatherName').value, '', 'ASSESSMENT YEAR', document.getElementById('assessmentYear').value],
+        ['DATE OF BIRTH', document.getElementById('dob').value, '', 'AGE', age],
+        ['WARD', document.getElementById('ward').value, '', 'PAN', document.getElementById('pan').value],
+        ['ADDRESS', document.getElementById('address').value, '', 'STATUS', status.toUpperCase()],
+        ['OCCUPATION', document.getElementById('occupation').value, '', 'SEX', document.getElementById('sex').value.toUpperCase()],
+        ['BANK ACCOUNT', document.querySelector('.bankAccount')?.value || 'N/A', '', 'EMAIL', document.getElementById('email').value],
+        ['IFSC CODE', document.querySelector('.ifsc')?.value || 'N/A', '', 'MOBILE', document.getElementById('mobile').value],
+        ['AADHAAR NO.', document.getElementById('aadhaar').value, '', 'GST SALES', formatINR(gstSales)],
+        ['', '', '', '', '']
+    ];
+
+    if (isIndividual) {
+        wsData.push(['TAX REGIME', regime.toUpperCase(), '', '', '']);
+        wsData.push(['', '', '', '', '']);
+    }
+
+    wsData.push(['', '', 'COMPUTATION OF TAX LIABILITY', '', '']);
+    wsData.push(['PARTICULARS', '', 'AMOUNT Rs.', '', '']);
+    wsData.push(['', '', '', '', '']);
+    wsData.push(['INCOME FROM BUSINESS', '', '', '', '']);
+    wsData.push(['Gross Receipts from Business', '', `${formatINR(neftDeposit)} + ${formatINR(cashDeposit)} + ${formatINR(gstSales)}`, '', '']);
+    wsData.push([`Income from Business (${businessRate}%)`, '', formatINR(businessIncome), '', '']);
+    wsData.push(['GROSS INCOME A', '', formatINR(businessIncome), '', '']);
+    wsData.push(['INCOME FROM SALARY', '', '', '', '']);
+    wsData.push(['Gross Salary', '', formatINR(grossSalary), '', '']);
+    wsData.push(['GROSS INCOME C', '', formatINR(grossSalary), '', '']);
+    wsData.push(['INCOME FROM OTHER SOURCES', '', '', '', '']);
+    wsData.push(['Bank Interest', '', formatINR(bankInterest), '', '']);
+    wsData.push(['GROSS INCOME B', '', formatINR(bankInterest), '', '']);
+    wsData.push(['GROSS TOTAL INCOME (A + B + C)', '', formatINR(grossTaxable), '', '']);
+    
+    if (isIndividual && regime === 'old') {
+        wsData.push(['LESS: BASIC EXEMPTION', '', formatINR(basicExemption), '', '']);
+        wsData.push(['LESS: DEDUCTION UNDER SECTION 80C', '', '', '', '']);
+        wsData.push(['Life Insurance Premium', '', getPremiumsString(), '', '']);
+        wsData.push(['Deduction U/S 80TTA', '', formatINR(section80TTA), '', '']);
+    }
+    wsData.push(['TOTAL INCOME', '', formatINR(totalIncome), '', '']);
+    wsData.push(['Total Income (Rounded Off)', '', formatINR(roundedTotalIncome), '', '']);
+    wsData.push([`Income Tax On Rs. ${formatINR(roundedTotalIncome)}`, '', formatINR(preRebateTax), '', '']);
+    wsData.push(['Less: Rebate U/S 87-A', '', formatINR(rebate), '', '']);
+    wsData.push(['Income Tax', '', formatINR(incomeTax), '', '']);
+    wsData.push(['Add: Health & Education Cess @ 4%', '', formatINR(cess), '', '']);
+    wsData.push(['Total Tax Payable', '', formatINR(totalTaxDue), '', '']);
+    wsData.push(['', '', '', '', '']);
+    wsData.push(['Balance Sheet Items', '', '', '', '']);
+    wsData.push(['Closing Stock', '', formatINR(getNum('closingStock')), '', '']);
+    wsData.push(['Sundry Creditors', '', formatINR(getNum('sundryCreditors')), '', '']);
+    wsData.push(['Sundry Debtors', '', formatINR(getNum('sundryDebtors')), '', '']);
+    wsData.push(['Cash in Hand', '', formatINR(getNum('cashInHand')), '', '']);
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+    
+    // Column widths for better print
+    ws['!cols'] = [
+        { wch: 30 }, // Particulars
+        { wch: 5 },
+        { wch: 25 }, // Amount
+        { wch: 5 },
+        { wch: 25 }
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Tax Computation');
+    XLSX.writeFile(wb, `TaxEaseProReport_${document.getElementById('assessmentYear').value}.xlsx`);
+}
       
         function resetForm() {
             document.getElementById('taxForm').reset();
