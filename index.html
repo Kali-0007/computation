@@ -1,0 +1,725 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Business Tax Computation Tool - TaxEasePro FY 2025-26</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/3.0.3/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.25/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body { margin: 0; font-family: 'Inter', sans-serif; background: #000; color: #fff; line-height: 1.6; }
+        .tool-container { max-width: 950px; margin: 40px auto; background: #111; border-radius: 16px; box-shadow: 0 10px 40px rgba(0,0,0,0.5); overflow: hidden; }
+        .tool-header { background: linear-gradient(135deg, #4a90e2, #357abd); padding: 32px; text-align: center; position: relative; }
+        .tool-header i { font-size: 48px; margin-bottom: 12px; display: block; }
+        .step-indicator { display: flex; justify-content: center; margin: 20px 0; background: #222; padding: 10px 0; border-radius: 10px; }
+        .step { width: 45px; height: 45px; border-radius: 50%; background: #333; display: flex; align-items: center; justify-content: center; margin: 0 12px; font-weight: 600; color: #fff; transition: background 0.3s; }
+        .step.active { background: #4a90e2; }
+        .step.completed { background: #28a745; }
+        .tool-form { padding: 30px; }
+        .form-step { display: none; }
+        .form-step.active { display: block; }
+        .form-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; }
+        label { font-weight: 600; margin-bottom: 6px; display: block; color: #ccc; }
+        input, select { width: 100%; padding: 12px; border-radius: 8px; border: 1px solid #444; background: #222; color: #fff; box-sizing: border-box; transition: border 0.3s; }
+        input:focus, select:focus { border-color: #4a90e2; outline: none; }
+        input::placeholder { color: #888; }
+        .btn-group { display: flex; gap: 12px; margin-top: 24px; justify-content: center; }
+        button { padding: 14px 24px; border-radius: 8px; border: none; font-size: 16px; cursor: pointer; font-weight: 600; transition: background 0.3s; }
+        .btn-primary { background: #4a90e2; color: #fff; }
+        .btn-primary:hover { background: #357abd; }
+        .btn-secondary { background: #555; color: #fff; }
+        .btn-secondary:hover { background: #666; }
+        .btn-add { background: #28a745; color: #fff; padding: 10px 16px; font-size: 14px; border-radius: 6px; align-self: flex-start; margin-top: 10px; }
+        .btn-add:hover { background: #218838; }
+        .btn-remove { background: #dc3545; color: #fff; padding: 8px 14px; font-size: 13px; border-radius: 6px; margin-top: 10px; }
+        .btn-remove:hover { background: #c82333; }
+        .bank-account-group, .premium-group { border: 1px solid #444; border-radius: 8px; padding: 15px; margin-bottom: 20px; background: #222; }
+        .reset-btn { background: #dc3545; color: #fff; width: auto; margin: 20px auto; display: block; }
+        .download-btns { display: flex; gap: 12px; justify-content: center; margin-top: 24px; flex-wrap: wrap; }
+        .download-btn { padding: 12px 20px; background: #28a745; color: #fff; border-radius: 8px; }
+        .download-btn:hover { background: #218838; }
+        .computation-results { padding: 30px; display: none; background: #111; border-top: 1px solid #333; }
+        .results-table { width: 100%; border-collapse: collapse; margin-top: 20px; background: #222; }
+        .results-table thead tr th:nth-child(2) { display: none; }
+        .results-table tbody tr td:nth-child(2) { display: none; }
+        .results-table th, .results-table td { padding: 14px; border-bottom: 1px solid #444; text-align: left; }
+        .results-table th { background: #4a90e2; color: #fff; }
+        .highlight-tax { color: #28a745; font-weight: bold; font-size: 18px; }
+        .close-calculator { position: absolute; top: 18px; right: 22px; background: rgba(0,0,0,0.4); border: none; color: #fff; font-size: 22px; width: 36px; height: 36px; border-radius: 50%; cursor: pointer; }
+        .close-calculator:hover { background: #dc3545; transform: scale(1.1); }
+        .invalid { border-color: #dc3545 !important; }
+        .error-msg { color: #dc3545; font-size: 12px; margin-top: 4px; display: block; }
+        .email-wrapper { position: relative; }
+        .email-suggestions { position: absolute; background: #222; border: 1px solid #444; width: calc(100% - 2px); max-height: 150px; overflow-y: auto; z-index: 1000; border-radius: 8px; margin-top: 2px; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
+        .email-suggestion { padding: 10px 12px; cursor: pointer; font-size: 14px; }
+        .email-suggestion:hover { background: #4a90e2; }
+        @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } .btn-group, .download-btns { flex-direction: column; } }
+    </style>
+</head>
+<body>
+    <div class="tool-container">
+        <header class="tool-header">
+            <i class="fas fa-calculator"></i>
+            <h1>Business Tax Computation Tool</h1>
+            <div>Pro Tax, Zero Stress</div>
+            <button class="close-calculator" onclick="closeCalculator()">×</button>
+        </header>
+      
+        <div class="step-indicator" id="stepIndicator">
+            <div class="step active" data-step="1">1</div>
+            <div class="step" data-step="2">2</div>
+            <div class="step" data-step="3">3</div>
+            <div class="step" data-step="4">4</div>
+        </div>
+      
+        <form id="taxForm" class="tool-form">
+            <!-- Step 1: Personal Details -->
+            <div class="form-step active" data-step="1">
+                <h3>Step 1: Personal Details</h3>
+                <div class="form-grid">
+                    <div><label>Name</label><input type="text" id="name"></div>
+                    <div><label>Father's Name</label><input type="text" id="fatherName"></div>
+                    <div><label>Date of Birth</label><input type="date" id="dob" onchange="calculateAge()"></div>
+                    <div><label>Age (Calculated)</label><input type="number" id="age" readonly></div>
+                    <div><label>Address</label><input type="text" id="address"></div>
+                    <div>
+                        <label>PAN</label>
+                        <input type="text" id="pan" maxlength="10" placeholder="ABCDE1234F" oninput="validatePAN(this)">
+                        <span id="panError" class="error-msg"></span>
+                    </div>
+                    <div><label>Ward</label><input type="text" id="ward"></div>
+                    <div><label>Occupation</label><input type="text" id="occupation"></div>
+                    <div><label>Sex</label>
+                        <select id="sex">
+                            <option value="male">Male</option>
+                            <option value="female">Female</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+                    <div class="email-wrapper">
+                        <label>Email</label>
+                        <input type="text" id="email" oninput="handleEmailInput(this)" onblur="hideSuggestions()" placeholder="user@domain.com">
+                        <div id="emailSuggestions" class="email-suggestions" style="display:none;"></div>
+                    </div>
+                    <div><label>Mobile</label><input type="tel" id="mobile" value="+91" oninput="formatMobile(this)" maxlength="14"></div>
+                    <div><label>Aadhaar No.</label><input type="text" id="aadhaar" placeholder="XXXX-XXXX-XXXX" oninput="formatAadhaar(this)" maxlength="14"></div>
+                    <div><label>GST Sales</label><input type="text" class="amount-input" id="gstSales" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                    <div><label>Financial Year</label><input type="text" id="financialYear" value="2025-26"></div>
+                    <div><label>Assessment Year</label><input type="text" id="assessmentYear" value="2026-27"></div>
+                    <div style="grid-column: 1 / -1"><label>Status</label>
+                        <select id="status">
+                            <option value="Individual">Individual</option>
+                            <option value="HUF">HUF</option>
+                            <option value="Firm/LLP">Firm/LLP</option>
+                            <option value="Company">Company</option>
+                            <option value="AOP/BOI">AOP/BOI</option>
+                        </select>
+                    </div>
+                    <div style="grid-column: 1 / -1"><label>Tax Regime</label>
+                        <select id="taxRegime">
+                            <option value="old">Old Tax Regime</option>
+                            <option value="new">New Tax Regime</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn-primary" onclick="nextStep(2)">Next</button>
+                </div>
+            </div>
+            <!-- Step 2: Bank & Deposits -->
+            <div class="form-step" data-step="2">
+                <h3>Step 2: Bank and Deposit Details</h3>
+                <div id="bankAccountsContainer">
+                    <div class="bank-account-group">
+                        <h4>Bank Account 1</h4>
+                        <div class="form-grid">
+                            <div><label>Bank Account Number</label><input type="text" class="bankAccount"></div>
+                            <div><label>Account Type</label>
+                                <select class="accountType">
+                                    <option>Savings</option>
+                                    <option>Current</option>
+                                    <option>CC</option>
+                                    <option>Other</option>
+                                </select>
+                            </div>
+                            <div><label>IFSC Code</label><input type="text" class="ifsc"></div>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="btn-add" onclick="addBankAccount()">Add Another Bank Account</button>
+              
+                <div class="deposit-section">
+                    <h4>CC Account Deposits (Aggregate)</h4>
+                    <div class="form-grid">
+                        <div style="grid-column: 1 / -1"><label>Total Deposit in CC Account</label><input type="text" class="amount-input" id="totalDeposit" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                        <div><label>Less: Transfer to CA</label><input type="text" class="amount-input" id="transferCA" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                        <div><label>Cash Deposit (Business)</label><input type="text" class="amount-input" id="cashDeposit" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                        <div><label>Deposit through NEFT/UPI</label><input type="text" class="amount-input" id="neftDeposit" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                    </div>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn-secondary" onclick="prevStep(1)">Previous</button>
+                    <button type="button" class="btn-primary" onclick="nextStep(3)">Next</button>
+                </div>
+            </div>
+            <!-- Step 3: Income & Deductions -->
+            <div class="form-step" data-step="3">
+                <h3>Step 3: Income, Deductions & Balances</h3>
+                <div class="form-grid">
+                    <div><label>Gross Salary</label><input type="text" class="amount-input" id="grossSalary" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                    <div><label>Bank Interest</label><input type="text" class="amount-input" id="bankInterest" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                  
+                    <div id="premiumContainer">
+                        <div class="premium-group">
+                            <h4>Life Insurance Premium 1 (80C)</h4>
+                            <div class="form-grid">
+                                <div style="grid-column: 1 / -1"><label>Amount</label><input type="text" class="amount-input lifePremium" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="button" class="btn-add" onclick="addPremium()">Add Another Premium</button>
+                  
+                    <div style="grid-column: 1 / -1"><label>Business Income Rate (%)</label><input type="number" id="businessRate" value="12" min="0" max="100"></div>
+                    <div><label>Closing Stock</label><input type="text" class="amount-input" id="closingStock" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                    <div><label>Sundry Creditors</label><input type="text" class="amount-input" id="sundryCreditors" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                    <div><label>Sundry Debtors</label><input type="text" class="amount-input" id="sundryDebtors" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                    <div><label>Cash in Hand</label><input type="text" class="amount-input" id="cashInHand" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                </div>
+                <div class="btn-group">
+                    <button type="button" class="btn-secondary" onclick="prevStep(2)">Previous</button>
+                    <button type="button" id="generateBtn" class="btn-primary">Generate Report</button>
+                </div>
+            </div>
+        </form>
+        <div id="results" class="computation-results">
+            <h2>Computation Summary</h2>
+            <table class="results-table">
+                <thead><tr><th>Particulars</th><th></th><th></th><th>Amount</th></tr></thead>
+                <tbody id="resultsTable"></tbody>
+            </table>
+            <div class="download-btns">
+                <button class="download-btn" onclick="downloadPDF()">Download PDF</button>
+                <button class="download-btn" onclick="downloadExcel()">Download Excel</button>
+            </div>
+            <button type="button" class="reset-btn" onclick="resetForm()">New Computation</button>
+        </div>
+    </div>
+
+    <script>
+        // Utility Functions
+        function formatINR(n) { n = parseFloat(n) || 0; return new Intl.NumberFormat('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n); }
+        function allowDigitsOnly(e) { e.value = e.value.replace(/[^0-9]/g, ''); }
+        function formatNumber(e) { let v = e.value.replace(/,/g, ''); e.value = formatINR(v); }
+        function getNum(id) { let v = document.getElementById(id).value.replace(/,/g, ''); return parseFloat(v) || 0; }
+      
+        function getPremiums() { let total = 0; document.querySelectorAll('.lifePremium').forEach(el => { total += parseFloat(el.value.replace(/,/g, '') || 0); }); return total; }
+        function getPremiumsString() { let values = []; document.querySelectorAll('.lifePremium').forEach(el => { let v = parseFloat(el.value.replace(/,/g, '') || 0); if (v > 0) values.push(formatINR(v)); }); return values.join(', '); }
+      
+        function formatMobile(input) { let v = input.value.replace(/[^0-9]/g, ''); if (v.length > 12) v = v.slice(0,12); input.value = '+91 ' + v.slice(2); }
+        function formatAadhaar(input) { let v = input.value.replace(/[^0-9]/g, ''); if (v.length > 12) v = v.slice(0,12); let f = ''; for (let i = 0; i < v.length; i++) { if (i === 4 || i === 8) f += '-'; f += v[i]; } input.value = f; }
+
+        function calculateAge() {
+            const dobInput = document.getElementById('dob').value;
+            if (!dobInput) return;
+            const dob = new Date(dobInput);
+            const today = new Date();
+            let age = today.getFullYear() - dob.getFullYear();
+            const monthDiff = today.getMonth() - dob.getMonth();
+            if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) age--;
+            document.getElementById('age').value = age;
+        }
+
+        // PAN Validation with error message
+        function validatePAN(input) {
+            let value = input.value.toUpperCase();
+            input.value = value;
+            const regex = /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/;
+            const errorSpan = document.getElementById('panError');
+            if (value.length === 0) {
+                input.classList.remove('invalid');
+                errorSpan.textContent = '';
+            } else if (value.length !== 10) {
+                input.classList.add('invalid');
+                errorSpan.textContent = 'PAN must be exactly 10 characters';
+            } else if (!regex.test(value)) {
+                input.classList.add('invalid');
+                errorSpan.textContent = 'Invalid PAN format (e.g., ABCDE1234F)';
+            } else {
+                input.classList.remove('invalid');
+                errorSpan.textContent = '';
+            }
+        }
+
+        // Email Auto-suggest
+        const domains = {
+            'g': 'gmail.com',
+            'y': 'yahoo.com',
+            'r': 'rediffmail.com',
+            'z': 'zohomail.in',
+            'h': 'hotmail.com',
+            'o': 'outlook.com'
+        };
+
+        function handleEmailInput(input) {
+            input.value = input.value.toLowerCase();
+            const value = input.value.trim();
+            const atIndex = value.indexOf('@');
+            const suggestionsDiv = document.getElementById('emailSuggestions');
+            suggestionsDiv.innerHTML = '';
+            suggestionsDiv.style.display = 'none';
+
+            if (atIndex !== -1 && atIndex === value.lastIndexOf('@')) {
+                const afterAt = value.slice(atIndex + 1).toLowerCase();
+                if (afterAt.length >= 1) {
+                    const matchingKeys = Object.keys(domains).filter(key => key.startsWith(afterAt[0]));
+                    if (matchingKeys.length > 0) {
+                        matchingKeys.forEach(key => {
+                            const fullDomain = domains[key];
+                            const fullEmail = value.slice(0, atIndex + 1) + fullDomain;
+                            const suggestion = document.createElement('div');
+                            suggestion.className = 'email-suggestion';
+                            suggestion.textContent = fullEmail;
+                            suggestion.onclick = () => {
+                                input.value = fullEmail;
+                                suggestionsDiv.style.display = 'none';
+                            };
+                            suggestionsDiv.appendChild(suggestion);
+                        });
+                        suggestionsDiv.style.display = 'block';
+                    }
+                }
+            }
+        }
+
+        function hideSuggestions() {
+            setTimeout(() => {
+                document.getElementById('emailSuggestions').style.display = 'none';
+            }, 200);
+        }
+
+        // Step Navigation
+        function updateSteps(currentStep) {
+            document.querySelectorAll('.step').forEach((step, i) => {
+                step.classList.remove('active', 'completed');
+                if (i < currentStep - 1) step.classList.add('completed');
+                if (i === currentStep - 1) step.classList.add('active');
+            });
+            document.querySelectorAll('.form-step').forEach((s, i) => s.classList.toggle('active', i === currentStep - 1));
+        }
+        function nextStep(step) { updateSteps(step); }
+        function prevStep(step) { updateSteps(step); }
+      
+        let bankCount = 1;
+        function addBankAccount() {
+            bankCount++;
+            const container = document.getElementById('bankAccountsContainer');
+            const div = document.createElement('div');
+            div.className = 'bank-account-group';
+            div.innerHTML = `
+                <h4>Bank Account ${bankCount}</h4>
+                <div class="form-grid">
+                    <div><label>Bank Account Number</label><input type="text" class="bankAccount"></div>
+                    <div><label>Account Type</label><select class="accountType"><option>Savings</option><option>Current</option><option>CC</option><option>Other</option></select></div>
+                    <div><label>IFSC Code</label><input type="text" class="ifsc"></div>
+                </div>
+                <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            container.appendChild(div);
+        }
+      
+        let premiumCount = 1;
+        function addPremium() {
+            premiumCount++;
+            const container = document.getElementById('premiumContainer');
+            const div = document.createElement('div');
+            div.className = 'premium-group';
+            div.innerHTML = `
+                <h4>Life Insurance Premium ${premiumCount} (80C)</h4>
+                <div class="form-grid">
+                    <div style="grid-column: 1 / -1"><label>Amount</label><input type="text" class="amount-input lifePremium" value="0" oninput="allowDigitsOnly(this)" onblur="formatNumber(this)"></div>
+                </div>
+                <button type="button" class="btn-remove" onclick="this.parentElement.remove()">Remove</button>
+            `;
+            container.appendChild(div);
+        }
+      
+        // Tax Calculation Functions (Accurate for FY 2025-26)
+        function calculateOldRegimeTax(totalIncome, basicExemption) {
+            let preRebateTax = 0;
+            if (totalIncome > basicExemption) {
+                const in5 = Math.min(totalIncome - basicExemption, 250000);
+                preRebateTax += in5 * 0.05;
+                const in20 = Math.min(Math.max(0, totalIncome - (basicExemption + 250000)), 500000);
+                preRebateTax += in20 * 0.20;
+                const in30 = Math.max(0, totalIncome - (basicExemption + 750000));
+                preRebateTax += in30 * 0.30;
+            }
+            let rebate = totalIncome <= 500000 ? Math.min(preRebateTax, 12500) : 0;
+            return { preRebateTax, rebate };
+        }
+      
+        function calculateNewRegimeTax(totalIncome) {
+            let preRebateTax = 0;
+            if (totalIncome > 400000) preRebateTax += Math.min(totalIncome - 400000, 400000) * 0.05;
+            if (totalIncome > 800000) preRebateTax += Math.min(totalIncome - 800000, 400000) * 0.10;
+            if (totalIncome > 1200000) preRebateTax += Math.min(totalIncome - 1200000, 400000) * 0.15;
+            if (totalIncome > 1600000) preRebateTax += Math.min(totalIncome - 1600000, 400000) * 0.20;
+            if (totalIncome > 2000000) preRebateTax += Math.min(totalIncome - 2000000, 400000) * 0.25;
+            if (totalIncome > 2400000) preRebateTax += (totalIncome - 2400000) * 0.30;
+            let rebate = totalIncome <= 1200000 ? Math.min(preRebateTax, 60000) : 0;
+            return { preRebateTax, rebate };
+        }
+      
+        // Generate Report
+        function generateReport() {
+            const status = document.getElementById('status').value;
+            const regime = document.getElementById('taxRegime').value;
+            const isIndividual = status === 'Individual' || status === 'HUF';
+            const age = parseInt(document.getElementById('age').value) || 0;
+            const cashDeposit = getNum('cashDeposit');
+            const neftDeposit = getNum('neftDeposit');
+            const gstSales = getNum('gstSales');
+            const grossReceipts = cashDeposit + neftDeposit + gstSales;
+            const businessRate = getNum('businessRate') / 100;
+            const businessIncome = grossReceipts * businessRate;
+            const grossSalary = getNum('grossSalary');
+            const bankInterest = getNum('bankInterest');
+            const grossTaxable = businessIncome + grossSalary + bankInterest;
+      
+            let section80C = 0;
+            let section80TTA = 0;
+            let basicExemption = 0;
+            if (isIndividual && regime === 'old') {
+                basicExemption = age >= 80 ? 500000 : age >= 60 ? 300000 : 250000;
+                section80C = Math.min(getPremiums(), 150000);
+                section80TTA = Math.min(bankInterest, 10000);
+            }
+      
+            const totalIncome = grossTaxable - (isIndividual && regime === 'old' ? section80C + section80TTA : 0);
+            const roundedTotalIncome = Math.round(totalIncome / 10) * 10;
+      
+            let preRebateTax = 0;
+            let rebate = 0;
+            if (!isIndividual) {
+                const rate = (status === 'Company') ? 0.25 : 0.30;
+                preRebateTax = roundedTotalIncome * rate;
+            } else if (regime === 'old') {
+                const calc = calculateOldRegimeTax(roundedTotalIncome, basicExemption);
+                preRebateTax = calc.preRebateTax;
+                rebate = calc.rebate;
+            } else {
+                const calc = calculateNewRegimeTax(roundedTotalIncome);
+                preRebateTax = calc.preRebateTax;
+                rebate = calc.rebate;
+            }
+            const incomeTax = preRebateTax - rebate;
+            const cess = incomeTax * 0.04;
+            const totalTaxDue = Math.round((incomeTax + cess) / 10) * 10;
+      
+            const cashDepositStr = formatINR(cashDeposit).replace('.00', '');
+            const neftDepositStr = formatINR(neftDeposit).replace('.00', '');
+            const gstSalesStr = formatINR(gstSales).replace('.00', '');
+            const grossReceiptsStr = `${neftDepositStr} + ${cashDepositStr} + ${gstSalesStr}`;
+            const premiumString = getPremiumsString();
+            const basicExemptionStr = formatINR(basicExemption);
+      
+            let bankAccountsHtml = '';
+            document.querySelectorAll('.bank-account-group').forEach((group, index) => {
+                const accountNum = group.querySelector('.bankAccount').value || 'N/A';
+                const ifsc = group.querySelector('.ifsc').value || 'N/A';
+                bankAccountsHtml += `<tr><td>BANK ACCOUNT ${index + 1}</td><td></td><td></td><td>${accountNum}</td></tr>
+                                   <tr><td>IFSC CODE</td><td></td><td></td><td>${ifsc}</td></tr>`;
+            });
+      
+            const tbody = document.getElementById('resultsTable');
+            let deductionsHtml = '';
+            if (isIndividual && regime === 'old') {
+                deductionsHtml = `
+                <tr style="font-weight:bold;"><td>LESS: BASIC EXEMPTION</td><td></td><td></td><td>${basicExemptionStr}</td></tr>
+                <tr style="font-weight:bold;"><td>LESS: DEDUCTION UNDER SECTION 80C</td><td></td><td></td><td></td></tr>
+                <tr><td>Life Insurance Premium</td><td></td><td></td><td style="font-weight:bold;">${premiumString}</td></tr>
+                <tr><td>Deduction U/S 80TTA</td><td></td><td></td><td>${formatINR(section80TTA)}</td></tr>
+                `;
+            }
+            const regimeHtml = isIndividual ? `<tr><td>TAX REGIME</td><td></td><td></td><td>${regime.toUpperCase()}</td></tr>` : '';
+            tbody.innerHTML = `
+                <tr><td></td><td></td><td></td><td></td></tr>
+                <tr><td>NAME</td><td></td><td></td><td>${document.getElementById('name').value}</td></tr>
+                <tr><td>FATHER'S NAME</td><td></td><td></td><td>${document.getElementById('fatherName').value}</td></tr>
+                <tr><td>DATE OF BIRTH</td><td></td><td></td><td>${document.getElementById('dob').value}</td></tr>
+                <tr><td>AGE</td><td></td><td></td><td>${age}</td></tr>
+                <tr><td>ADDRESS</td><td></td><td></td><td>${document.getElementById('address').value}</td></tr>
+                <tr><td>OCCUPATION</td><td></td><td></td><td>${document.getElementById('occupation').value}</td></tr>
+                ${bankAccountsHtml}
+                <tr><td>FINANCIAL YEAR</td><td></td><td></td><td>${document.getElementById('financialYear').value}</td></tr>
+                <tr><td>ASSESSMENT YEAR</td><td></td><td></td><td>${document.getElementById('assessmentYear').value}</td></tr>
+                <tr><td>PAN</td><td></td><td></td><td>${document.getElementById('pan').value}</td></tr>
+                <tr><td>STATUS</td><td></td><td></td><td>${status}</td></tr>
+                ${regimeHtml}
+                <tr><td>GST SALES</td><td></td><td></td><td>${formatINR(gstSales)}</td></tr>
+                <tr><td colspan="4" style="text-align:center; font-weight:bold; padding-top:20px;">COMPUTATION OF TAX LIABILITY</td></tr>
+                <tr><td>PARTICULARS</td><td></td><td></td style="text-align:right;">AMOUNT Rs.</td></tr>
+                <tr><td></td><td></td><td></td><td></td></tr>
+                <tr style="font-weight:bold;"><td>INCOME FROM BUSINESS</td><td></td><td></td><td></td></tr>
+                <tr><td>Gross Receipts from Business</td><td></td><td></td><td style="font-weight:bold;">${grossReceiptsStr}</td></tr>
+                <tr><td>Income from Business (${getNum('businessRate')}%)</td><td></td><td></td><td>${formatINR(businessIncome)}</td></tr>
+                <tr style="font-weight:bold;"><td>GROSS INCOME A</td><td></td><td></td><td>${formatINR(businessIncome)}</td></tr>
+                <tr style="font-weight:bold;"><td>INCOME FROM SALARY</td><td></td><td></td><td></td></tr>
+                <tr><td>Gross Salary</td><td></td><td></td><td>${formatINR(grossSalary)}</td></tr>
+                <tr style="font-weight:bold;"><td>GROSS INCOME C</td><td></td><td></td><td>${formatINR(grossSalary)}</td></tr>
+                <tr style="font-weight:bold;"><td>INCOME FROM OTHER SOURCES</td><td></td><td></td><td></td></tr>
+                <tr><td>Bank Interest</td><td></td><td></td><td>${formatINR(bankInterest)}</td></tr>
+                <tr style="font-weight:bold;"><td>GROSS INCOME B</td><td></td><td></td><td>${formatINR(bankInterest)}</td></tr>
+                <tr style="font-weight:bold;"><td>GROSS TOTAL INCOME (A + B + C)</td><td></td><td></td><td>${formatINR(grossTaxable)}</td></tr>
+                ${deductionsHtml}
+                <tr style="font-weight:bold;"><td>TOTAL INCOME</td><td></td><td></td><td>${formatINR(totalIncome)}</td></tr>
+                <tr style="font-weight:bold;"><td>Total Income (Rounded Off)</td><td></td><td></td><td>${formatINR(roundedTotalIncome)}</td></tr>
+                <tr><td>Income Tax On Rs. ${formatINR(roundedTotalIncome)}</td><td></td><td></td><td>${formatINR(preRebateTax)}</td></tr>
+                <tr><td>Less: Rebate U/S 87-A</td><td></td><td></td><td>${formatINR(rebate)}</td></tr>
+                <tr style="font-weight:bold;"><td>Income Tax</td><td></td><td></td><td>${formatINR(incomeTax)}</td></tr>
+                <tr><td>Add: Health & Education Cess @ 4%</td><td></td><td></td><td>${formatINR(cess)}</td></tr>
+                <tr style="font-weight:bold;"><td>Total Tax Payable</td><td></td><td></td><td class="highlight-tax">${formatINR(totalTaxDue)}</td></tr>
+                <tr><td>Less: Tax Deducted At Source</td><td></td><td></td><td>0.00</td></tr>
+                <tr><td>Less: Self Assessment Tax Paid</td><td></td><td></td><td>0.00</td></tr>
+                <tr style="font-weight:bold;"><td>Net Tax Payable / Refundable</td><td></td><td></td><td>${formatINR(totalTaxDue)}</td></tr>
+                <tr><td colspan="4" style="padding-top:20px;"></td></tr>
+                <tr style="font-weight:bold;"><td>Closing Stock</td><td></td><td></td><td>${formatINR(getNum('closingStock'))}</td></tr>
+                <tr><td>Sundry Creditors</td><td></td><td></td><td>${formatINR(getNum('sundryCreditors'))}</td></tr>
+                <tr><td>Sundry Debtors</td><td></td><td></td><td>${formatINR(getNum('sundryDebtors'))}</td></tr>
+                <tr><td>Cash in Hand</td><td></td><td></td><td>${formatINR(getNum('cashInHand'))}</td></tr>
+            `;
+      
+            document.getElementById('results').style.display = 'block';
+            window.scrollTo({ top: document.getElementById('results').offsetTop, behavior: 'smooth' });
+            updateSteps(4);
+        }
+      
+        // PDF Download (Safe with String conversion)
+        function downloadPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            const status = document.getElementById('status').value;
+            const regime = document.getElementById('taxRegime').value;
+            const isIndividual = status === 'Individual' || status === 'HUF';
+            const age = parseInt(document.getElementById('age').value) || 0;
+      
+            const name = document.getElementById('name').value || '';
+            const fatherName = document.getElementById('fatherName').value || '';
+            const dob = document.getElementById('dob').value || '';
+            const address = document.getElementById('address').value || '';
+            const ward = document.getElementById('ward').value || '';
+            const pan = document.getElementById('pan').value || '';
+            const occupation = document.getElementById('occupation').value || '';
+            const sex = document.getElementById('sex').value || '';
+            const email = document.getElementById('email').value || '';
+            const mobile = document.getElementById('mobile').value || '';
+            const aadhaar = document.getElementById('aadhaar').value || '';
+            const financialYear = document.getElementById('financialYear').value || '';
+            const assessmentYear = document.getElementById('assessmentYear').value || '';
+            const bankAccount = document.querySelector('.bankAccount')?.value || 'N/A';
+            const ifsc = document.querySelector('.ifsc')?.value || 'N/A';
+            const gstSalesDisplay = formatINR(getNum('gstSales'));
+      
+            let personalData = [
+                ['NAME', String(name), 'FINANCIAL YEAR', String(financialYear)],
+                ['FATHER\'S NAME', String(fatherName), 'ASSESSMENT YEAR', String(assessmentYear)],
+                ['DATE OF BIRTH', String(dob), 'AGE', String(age)],
+                ['WARD', String(ward), 'PAN', String(pan)],
+                ['ADDRESS', String(address), 'STATUS', String(status.toUpperCase())],
+                ['OCCUPATION', String(occupation), 'SEX', String(sex.toUpperCase())],
+                ['BANK ACCOUNT', String(bankAccount), 'EMAIL', String(email)],
+                ['IFSC CODE', String(ifsc), 'MOBILE', String(mobile)],
+                ['AADHAAR NO.', String(aadhaar), 'GST SALES', String(gstSalesDisplay)],
+                ['', '', '', '']
+            ];
+            if (isIndividual) {
+                personalData.splice(5, 0, ['TAX REGIME', String(regime.toUpperCase()), '', '']);
+            }
+      
+            doc.setFontSize(10);
+            let y = 30;
+            const x1 = 15, x2 = 50, x3 = 110, x4 = 150;
+            personalData.forEach(row => {
+                doc.text(String(row[0] || ''), x1, y);
+                doc.text(String(row[1] || ''), x2, y);
+                doc.text(String(row[2] || ''), x3, y);
+                doc.text(String(row[3] || ''), x4, y);
+                y += 5;
+                if (y > 280) { doc.addPage(); y = 20; }
+            });
+      
+            const cashDeposit = getNum('cashDeposit');
+            const neftDeposit = getNum('neftDeposit');
+            const gstSalesPDF = getNum('gstSales');
+            const grossReceiptsPDF = cashDeposit + neftDeposit + gstSalesPDF;
+            const businessIncome = grossReceiptsPDF * (getNum('businessRate') / 100);
+            const grossSalary = getNum('grossSalary');
+            const bankInterest = getNum('bankInterest');
+            const grossTaxable = businessIncome + grossSalary + bankInterest;
+      
+            let section80C = 0;
+            let section80TTA = 0;
+            let basicExemption = 0;
+            if (isIndividual && regime === 'old') {
+                basicExemption = age >= 80 ? 500000 : age >= 60 ? 300000 : 250000;
+                section80C = Math.min(getPremiums(), 150000);
+                section80TTA = Math.min(bankInterest, 10000);
+            }
+      
+            const totalIncome = grossTaxable - (isIndividual && regime === 'old' ? section80C + section80TTA : 0);
+            const roundedTotalIncome = Math.round(totalIncome / 10) * 10;
+      
+            let preRebateTax = 0;
+            let rebate = 0;
+            if (!isIndividual) {
+                const rate = (status === 'Company') ? 0.25 : 0.30;
+                preRebateTax = roundedTotalIncome * rate;
+            } else if (regime === 'old') {
+                const calc = calculateOldRegimeTax(roundedTotalIncome, basicExemption);
+                preRebateTax = calc.preRebateTax;
+                rebate = calc.rebate;
+            } else {
+                const calc = calculateNewRegimeTax(roundedTotalIncome);
+                preRebateTax = calc.preRebateTax;
+                rebate = calc.rebate;
+            }
+            const incomeTax = preRebateTax - rebate;
+            const cess = incomeTax * 0.04;
+            const totalTaxDue = Math.round((incomeTax + cess) / 10) * 10;
+      
+            const grossReceiptsPDFStr = `${String(formatINR(neftDeposit).replace('.00',''))} + ${String(formatINR(cashDeposit).replace('.00',''))} + ${String(formatINR(gstSalesPDF).replace('.00',''))}`;
+            const premiumString = getPremiumsString();
+      
+            y += 10;
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text('COMPUTATION OF TAX LIABILITY', 105, y, { align: 'center' });
+            y += 7;
+            doc.setFontSize(10);
+            doc.text('PARTICULARS', 15, y);
+            doc.text('AMOUNT Rs.', 195, y, { align: 'right' });
+            doc.line(15, y + 1, 195, y + 1);
+      
+            const addRow = (particulars, amount = '', isBold = false) => {
+                y += 4.5;
+                if (y > 280) { 
+                    doc.addPage(); 
+                    y = 20; 
+                    doc.text('PARTICULARS', 15, y);
+                    doc.text('AMOUNT Rs.', 195, y, { align: 'right' });
+                    doc.line(15, y + 1, 195, y + 1);
+                    y += 7;
+                }
+                doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+                doc.text(String(particulars), 15, y);
+                if (amount !== '') doc.text(String(amount), 195, y, { align: 'right' });
+            };
+      
+            addRow('INCOME FROM BUSINESS', '', true);
+            addRow('Gross Receipts from Business', grossReceiptsPDFStr);
+            addRow(`Income from Business (${getNum('businessRate')})`, formatINR(businessIncome));
+            addRow('GROSS INCOME A', formatINR(businessIncome), true);
+      
+            addRow('INCOME FROM SALARY', '', true);
+            addRow('Gross Salary', formatINR(grossSalary));
+            addRow('GROSS INCOME C', formatINR(grossSalary), true);
+      
+            addRow('INCOME FROM OTHER SOURCES', '', true);
+            addRow('Bank Interest', formatINR(bankInterest));
+            addRow('GROSS INCOME B', formatINR(bankInterest), true);
+            addRow('GROSS TOTAL INCOME (A + B + C)', formatINR(grossTaxable), true);
+      
+            if (isIndividual && regime === 'old') {
+                addRow('LESS: BASIC EXEMPTION', formatINR(basicExemption), true);
+                addRow('LESS: DEDUCTION UNDER SECTION 80C', '', true);
+                addRow('Life Insurance Premium', premiumString);
+                addRow('Deduction U/S 80TTA', formatINR(section80TTA));
+            }
+            addRow('TOTAL INCOME', formatINR(totalIncome), true);
+            addRow('Total Income (Rounded Off)', formatINR(roundedTotalIncome), true);
+            addRow(`Income Tax On Rs. ${formatINR(roundedTotalIncome)}`, formatINR(preRebateTax));
+            addRow('Less: Rebate U/S 87-A', formatINR(rebate));
+            addRow('Income Tax', formatINR(incomeTax), true);
+            addRow('Add: Health & Education Cess @ 4%', formatINR(cess));
+            addRow('Total Tax Payable', formatINR(totalTaxDue), true);
+            addRow('Balance Sheet Items', '', true);
+            addRow('Closing Stock', formatINR(getNum('closingStock')));
+            addRow('Sundry Creditors', formatINR(getNum('sundryCreditors')));
+            addRow('Sundry Debtors', formatINR(getNum('sundryDebtors')));
+            addRow('Cash in Hand', formatINR(getNum('cashInHand')));
+      
+            doc.save(`TaxEaseProReport_${assessmentYear}.pdf`);
+        }
+      
+        function downloadExcel() {
+            const status = document.getElementById('status').value;
+            const regime = document.getElementById('taxRegime').value;
+            const isIndividual = status === 'Individual' || status === 'HUF';
+            const age = parseInt(document.getElementById('age').value) || 0;
+            let wsData = [
+                ['NAME', document.getElementById('name').value, 'FINANCIAL YEAR', document.getElementById('financialYear').value],
+                ['FATHER\'S NAME', document.getElementById('fatherName').value, 'ASSESSMENT YEAR', document.getElementById('assessmentYear').value],
+                ['DATE OF BIRTH', document.getElementById('dob').value, 'AGE', age],
+                ['PAN', document.getElementById('pan').value, 'GST SALES', formatINR(getNum('gstSales'))],
+                ['STATUS', status.toUpperCase()]
+            ];
+            if (isIndividual) wsData.push(['TAX REGIME', regime.toUpperCase()]);
+            wsData.push(['', '', 'COMPUTATION OF TAX LIABILITY', '']);
+            wsData.push(['PARTICULARS', '', 'AMOUNT Rs.', '']);
+            wsData.push(['INCOME FROM BUSINESS', '', '', '']);
+            wsData.push(['Gross Receipts from Business', '', `${formatINR(getNum('neftDeposit'))} + ${formatINR(getNum('cashDeposit'))} + ${formatINR(getNum('gstSales'))}`, '']);
+            wsData.push(['Income from Business', getNum('businessRate') + '%', formatINR((getNum('cashDeposit') + getNum('neftDeposit') + getNum('gstSales')) * (getNum('businessRate')/100))]);
+            wsData.push(['GROSS INCOME A', '', formatINR((getNum('cashDeposit') + getNum('neftDeposit') + getNum('gstSales')) * (getNum('businessRate')/100))]);
+            wsData.push(['INCOME FROM SALARY', '', '', '']);
+            wsData.push(['Gross Salary', '', formatINR(getNum('grossSalary'))]);
+            wsData.push(['GROSS INCOME C', '', formatINR(getNum('grossSalary'))]);
+            wsData.push(['INCOME FROM OTHER SOURCES', '', '', '']);
+            wsData.push(['Bank Interest', '', formatINR(getNum('bankInterest'))]);
+            wsData.push(['GROSS INCOME B', '', formatINR(getNum('bankInterest'))]);
+            wsData.push(['GROSS TOTAL INCOME', '', formatINR(getNum('bankInterest') + getNum('grossSalary') + (getNum('cashDeposit') + getNum('neftDeposit') + getNum('gstSales')) * (getNum('businessRate')/100))]);
+            if (isIndividual && regime === 'old') {
+                const basicExemptionExcel = age >= 80 ? 500000 : age >= 60 ? 300000 : 250000;
+                wsData.push(['Basic Exemption', '', formatINR(basicExemptionExcel)]);
+                wsData.push(['Life Insurance Premium (80C)', '', getPremiumsString()]);
+                wsData.push(['Deduction U/S 80TTA', '', formatINR(Math.min(getNum('bankInterest'), 10000))]);
+            }
+            const totalIncomeExcel = getNum('bankInterest') + getNum('grossSalary') + (getNum('cashDeposit') + getNum('neftDeposit') + getNum('gstSales')) * (getNum('businessRate')/100) - (isIndividual && regime === 'old' ? Math.min(getPremiums(), 150000) + Math.min(getNum('bankInterest'), 10000) : 0);
+            wsData.push(['TOTAL INCOME', '', formatINR(totalIncomeExcel)]);
+            wsData.push(['Closing Stock', '', formatINR(getNum('closingStock'))]);
+            wsData.push(['Sundry Creditors', '', formatINR(getNum('sundryCreditors'))]);
+            wsData.push(['Sundry Debtors', '', formatINR(getNum('sundryDebtors'))]);
+            wsData.push(['Cash in Hand', '', formatINR(getNum('cashInHand'))]);
+      
+            const ws = XLSX.utils.aoa_to_sheet(wsData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Tax Computation');
+            XLSX.writeFile(wb, `TaxEaseProReport_${document.getElementById('assessmentYear').value}.xlsx`);
+        }
+      
+        function resetForm() {
+            document.getElementById('taxForm').reset();
+            document.getElementById('mobile').value = '+91';
+            document.getElementById('age').value = '';
+            document.getElementById('panError').textContent = '';
+            document.getElementById('pan').classList.remove('invalid');
+            document.getElementById('results').style.display = 'none';
+            document.getElementById('resultsTable').innerHTML = '';
+            updateSteps(1);
+            document.querySelectorAll('.bank-account-group:not(:first-child)').forEach(el => el.remove());
+            document.querySelectorAll('.premium-group:not(:first-child)').forEach(el => el.remove());
+            bankCount = 1; premiumCount = 1;
+            document.querySelectorAll('.amount-input').forEach(input => formatNumber(input));
+        }
+      
+        function closeCalculator() { alert('Closing calculator'); }
+      
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('generateBtn').addEventListener('click', generateReport);
+            document.querySelectorAll('.amount-input').forEach(input => formatNumber(input));
+        });
+    </script>
+</body>
+</html>
